@@ -1,0 +1,10 @@
+# depslib dependency file v1.0
+1495678419 source:/home/matheus/Projects/TrabGB_LabSisop/main.c
+	<stdio.h>
+	<stdlib.h>
+	<signal.h>
+	<pthread.h>
+	<unistd.h>
+	<sys/types.h>
+	<string.h>
+
