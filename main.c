@@ -105,13 +105,13 @@ void sendFileToUnzip(char* filepath) {
             unzipFile(filepath);
             //close(fd[0]);
 
-            /* Send "string" through the output side of pipe */
+            /* envia string pelo pipe */
             //write(fd[1], string, (strlen(string)+1));
             //exit(0);
     }
     else
     {
-             //Processo pai fecha a pipe de saída
+             //Processo pai fecha o pipe de saída
             //close(fd[1]);
             printf("processo pai");
             //teste de leitura de string do pipe
