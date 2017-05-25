@@ -16,6 +16,7 @@
 #include <sys/types.h>
 #include <string.h>
 #include <dirent.h>
+#include <stdbool.h>
 
 #define O_RDONLY         00
 #define O_WRONLY         01
@@ -68,61 +69,53 @@ void listFiles() {
     DIR *dir;
     struct dirent *ent;
     if ((dir = opendir (DIRETORIO_SCAN)) != NULL) {
-      /* print all the files and directories within directory */
+      //varre e exibe todos os arquivos dentro do diretorio informado
       while ((ent = readdir (dir)) != NULL) {
 
         char filepath[1024];
         if(strcmp(ent->d_name,".")!=0 && strcmp(ent->d_name,"..")!=0) {
             sprintf(filepath, "%s/%s", DIRETORIO_SCAN, ent->d_name);
-            printf ("\n%s\n", /*ent->d_name*/ filepath);
-            checkFileZip(filepath);
+            printf ("\n%s", /*ent->d_name*/ filepath);
+            if(checkFileZip(filepath) == true) {
+                printf("\nO arquivo está zipado.");
+                //
+            }
         }
       }
       closedir (dir);
     } else {
-      /* could not open directory */
+      //erro ao abrir o diretorio
       perror ("");
       return EXIT_FAILURE;
     }
 }
 
 
-void checkFileZip(char* filepath) {
-        int input_fd, output_fd;    /* Input and output file descriptors */
-        ssize_t ret_in, ret_out;    /* Number of bytes returned by read() and write() */
+bool checkFileZip(char* filepath) {
+    int readFd;
+    unsigned char readBuffer[2];
 
+    //Cria o descritor de arquivo de leitura
+    readFd = open(filepath, O_RDONLY, 0644);
+    if(readFd == -1){
+        perror("open error");
+        return false;
+    }
 
-        /* Create output file descriptor */
-        output_fd = open(filepath, O_RDONLY, 0644);
-        if(output_fd == -1){
-            perror("open error");
-            return 3;
-        }
+    ssize_t res = read (readFd, readBuffer, 2);
 
+    printf("\n%X", readBuffer[0]);
+    printf(" %X", readBuffer[1]);
 
-        char buffer[2];
+    if (readBuffer[0]==0x1F && readBuffer[1]==0x8B) return true;
 
-        //write (output_fd, "teste", strlen("teste"));
-
-        int res = read (output_fd, buffer, 2);
-
-        printf("\n%02x", buffer[1]);
-
-
-        /* Create input file descriptor */
-        /*input_fd = open (ARQUIVO_FIXO, O_RDONLY);
-        if (input_fd == -1) {
-            perror ("open error");
-            return 2;
-        }
-
-        /* Close file descriptors */
-        //close (input_fd);
-        close (output_fd);
-
+    close (readFd);
+    return false;
 }
 
+void sendFileToUnzip() {
 
+}
 
 
 
