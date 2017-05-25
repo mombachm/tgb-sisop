@@ -14,54 +14,25 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <string.h>
 #include <dirent.h>
 #include <stdbool.h>
 
-#define O_RDONLY         00
-#define O_WRONLY         01
-#define O_RDWR           02
+
 
 const char* DIRETORIO_SCAN = "./scan_files";
+const int MAX_THREADS = 50;
+pthread_t tid[50];
+void* doSomeThing(void *arg);
+
+int contThreads = 0;
 
 int main(void)
 {
-        int fd[2], nbytes;
-        pid_t childpid;
-        char string[] = "Hello, world!\n";
-        char readbuffer[80];
-
-        pipe(fd);
-
-        if((childpid = fork()) == -1)
-        {
-                perror("fork");
-                exit(1);
-        }
-
-        if(childpid == 0)
-        {
-                /* Child process closes up input side of pipe */
-                close(fd[0]);
-
-                /* Send "string" through the output side of pipe */
-                write(fd[1], string, (strlen(string)+1));
-                exit(0);
-        }
-        else
-        {
-                /* Parent process closes up output side of pipe */
-                close(fd[1]);
-
-                /* Read in a string from the pipe */
-                nbytes = read(fd[0], readbuffer, sizeof(readbuffer));
-                printf("Received string: %s", readbuffer);
-        }
-
-
-        listFiles();
-
-        return(0);
+    listFiles();
+    return(0);
 }
 
 
@@ -78,7 +49,7 @@ void listFiles() {
             printf ("\n%s", /*ent->d_name*/ filepath);
             if(checkFileZip(filepath) == true) {
                 printf("\nO arquivo está zipado.");
-                //
+                sendFileToUnzip(filepath);
             }
         }
       }
@@ -91,7 +62,7 @@ void listFiles() {
 }
 
 
-bool checkFileZip(char* filepath) {
+int checkFileZip(char* filepath) {
     int readFd;
     unsigned char readBuffer[2];
 
@@ -113,9 +84,91 @@ bool checkFileZip(char* filepath) {
     return false;
 }
 
-void sendFileToUnzip() {
+void sendFileToUnzip(char* filepath) {
+    int fd[2], nbytes;
+    pid_t childpid;
+    char string[] = "teste\n";
+    char readbuffer[80];
+
+    pipe(fd);
+
+    if((childpid = fork()) == -1)
+    {
+        perror("fork");
+        exit(1);
+    }
+
+    if(childpid == 0)
+    {
+            //Processo filho fecha a pipe de entrada
+
+            unzipFile(filepath);
+            //close(fd[0]);
+
+            /* Send "string" through the output side of pipe */
+            //write(fd[1], string, (strlen(string)+1));
+            //exit(0);
+    }
+    else
+    {
+             //Processo pai fecha a pipe de saída
+            //close(fd[1]);
+            printf("processo pai");
+            //teste de leitura de string do pipe
+            //nbytes = read(fd[0], readbuffer, sizeof(readbuffer));
+            //printf("Received string: %s", readbuffer);
+    }
 
 }
+
+void unzipFile(char* filepath) {
+    int readFd;
+    //Cria o descritor de arquivo de leitura
+    readFd = open(filepath, O_RDONLY | O_CLOEXEC);
+    if(readFd == -1){
+        perror("open error");
+        return;
+    }
+
+    char buffer[200];
+
+    dup2(readFd, STDIN_FILENO);
+
+    printf("chamou unzip");
+    execlp("gzip", "gzip", "-d", NULL);
+
+    read(STDOUT_FILENO, buffer, 200);
+
+
+
+    printf("\n\nLEU: %s", buffer);
+}
+
+void initNewThread() {
+    int err;
+
+    if (contThreads < MAX_THREADS)
+    {
+        err = pthread_create(&(tid[contThreads]), NULL, &doSomeThing, NULL);
+        if (err != 0)
+            printf("\ncan't create thread :[%s]", strerror(err));
+        else
+            printf("\n Thread %d criada.\n", contThreads);
+
+        contThreads++;
+    }
+}
+
+void* doSomeThing(void *arg)
+{
+    while(true) {
+        write(1, "Teste", 5);
+        sleep(1);
+    }
+
+    return NULL;
+}
+
 
 
 
