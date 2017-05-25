@@ -15,13 +15,13 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <string.h>
+#include <dirent.h>
 
 #define O_RDONLY         00
 #define O_WRONLY         01
 #define O_RDWR           02
 
-const char* ARQUIVO_FIXO = "./teste";
-
+const char* DIRETORIO_SCAN = "./scan_files";
 
 int main(void)
 {
@@ -58,30 +58,55 @@ int main(void)
         }
 
 
+        listFiles();
+
+        return(0);
+}
 
 
+void listFiles() {
+    DIR *dir;
+    struct dirent *ent;
+    if ((dir = opendir (DIRETORIO_SCAN)) != NULL) {
+      /* print all the files and directories within directory */
+      while ((ent = readdir (dir)) != NULL) {
+
+        char filepath[1024];
+        if(strcmp(ent->d_name,".")!=0 && strcmp(ent->d_name,"..")!=0) {
+            sprintf(filepath, "%s/%s", DIRETORIO_SCAN, ent->d_name);
+            printf ("\n%s\n", /*ent->d_name*/ filepath);
+            checkFileZip(filepath);
+        }
+      }
+      closedir (dir);
+    } else {
+      /* could not open directory */
+      perror ("");
+      return EXIT_FAILURE;
+    }
+}
 
 
+void checkFileZip(char* filepath) {
         int input_fd, output_fd;    /* Input and output file descriptors */
         ssize_t ret_in, ret_out;    /* Number of bytes returned by read() and write() */
 
 
         /* Create output file descriptor */
-        output_fd = open(ARQUIVO_FIXO, O_RDWR, 0644);
+        output_fd = open(filepath, O_RDONLY, 0644);
         if(output_fd == -1){
             perror("open error");
             return 3;
         }
 
 
-        char buffer[strlen("teste")];
+        char buffer[2];
 
         //write (output_fd, "teste", strlen("teste"));
 
-        int res = read (output_fd, buffer, 3);
+        int res = read (output_fd, buffer, 2);
 
-        printf("\n%d", res);
-        printf("\n%s", buffer);
+        printf("\n%02x", buffer[1]);
 
 
         /* Create input file descriptor */
@@ -91,30 +116,11 @@ int main(void)
             return 2;
         }
 
-
-
-        printf(read(input_fd));*/
-
-
-        /* Copy process */
-
-
-
         /* Close file descriptors */
-        close (input_fd);
+        //close (input_fd);
         close (output_fd);
 
-
-
-        return(0);
 }
-
-
-
-
-
-
-
 
 
 
