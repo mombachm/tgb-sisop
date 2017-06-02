@@ -116,7 +116,7 @@ void sendFileToUnzip(char* filepath) {
             printf("processo pai");
             //teste de leitura de string do pipe
             //nbytes = read(fd[0], readbuffer, sizeof(readbuffer));
-            //printf("Received string: %s", readbuffer);
+            //printf("String recebida: %s", readbuffer);
     }
 
 }
@@ -129,19 +129,8 @@ void unzipFile(char* filepath) {
         perror("open error");
         return;
     }
-
-    char buffer[200];
-
-    dup2(readFd, STDIN_FILENO);
-
     printf("chamou unzip");
     execlp("gzip", "gzip", "-d", NULL);
-
-    read(STDOUT_FILENO, buffer, 200);
-
-
-
-    printf("\n\nLEU: %s", buffer);
 }
 
 void initNewThread() {
