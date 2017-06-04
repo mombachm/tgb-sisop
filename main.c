@@ -25,44 +25,34 @@
 const char* DIRETORIO_SCAN = "./scan_files";
 const int MAX_THREADS = 50;
 pthread_t tid[50];
-void* doSomeThing(void *arg);
+
+void* virusVerification(void *arg);
 
 int contThreads = 0;
+int pipeGzip[2];
 
-int main(void)
+int main(int argc, char **argv)
 {
-    listFiles();
-    return(0);
+    checkFilesForVirus(argc, argv);
+    //initNewThread();
+    return(EXIT_SUCCESS);
 }
 
-
-void listFiles() {
-    DIR *dir;
-    struct dirent *ent;
-    if ((dir = opendir (DIRETORIO_SCAN)) != NULL) {
-      //varre e exibe todos os arquivos dentro do diretorio informado
-      while ((ent = readdir (dir)) != NULL) {
-
-        char filepath[1024];
-        if(strcmp(ent->d_name,".")!=0 && strcmp(ent->d_name,"..")!=0) {
-            sprintf(filepath, "%s/%s", DIRETORIO_SCAN, ent->d_name);
-            printf ("\n%s", /*ent->d_name*/ filepath);
-            if(checkFileZip(filepath) == true) {
-                printf("\nO arquivo está zipado.");
-                sendFileToUnzip(filepath);
-            }
+void checkFilesForVirus(int len, char **filepaths) {
+    int readFd;
+    char* strZipped;
+    for( int i = 2; i < len; ++i ) {
+        if(checkFileCompressed(filepaths[ i ]) == true) {
+            strZipped = "Compressed";
+            sendFileToUnzip(filepaths[ i ]);
+        } else {
+            strZipped = "Uncompressed";
         }
-      }
-      closedir (dir);
-    } else {
-      //erro ao abrir o diretorio
-      perror ("");
-      return EXIT_FAILURE;
+        printf( "File: %-30s - %s \n", filepaths[ i ], strZipped );
     }
 }
 
-
-int checkFileZip(char* filepath) {
+int checkFileCompressed(char* filepath) {
     int readFd;
     unsigned char readBuffer[2];
 
@@ -72,25 +62,33 @@ int checkFileZip(char* filepath) {
         perror("open error");
         return false;
     }
-
     ssize_t res = read (readFd, readBuffer, 2);
-
-    printf("\n%X", readBuffer[0]);
-    printf(" %X", readBuffer[1]);
-
     if (readBuffer[0]==0x1F && readBuffer[1]==0x8B) return true;
 
     close (readFd);
     return false;
 }
 
-void sendFileToUnzip(char* filepath) {
-    int fd[2], nbytes;
-    pid_t childpid;
-    char string[] = "teste\n";
+/*void handler(int sig)
+{
     char readbuffer[80];
+    pid_t pid;
 
-    pipe(fd);
+    pid = wait(NULL);
+
+
+    printf("Pid %d exited.\n", pid);
+    close(pipeGzip[1]);
+    int nbytes = read(pipeGzip[0], readbuffer, 1024);
+    printf("String recebida: (%s)", readbuffer);
+}*/
+
+void sendFileToUnzip(char* filepath) {
+
+    pid_t childpid;
+
+    char* readbuffer[1024];
+    pipe(pipeGzip);
 
     if((childpid = fork()) == -1)
     {
@@ -100,62 +98,73 @@ void sendFileToUnzip(char* filepath) {
 
     if(childpid == 0)
     {
-            //Processo filho fecha a pipe de entrada
-
-            unzipFile(filepath);
-            //close(fd[0]);
-
-            /* envia string pelo pipe */
-            //write(fd[1], string, (strlen(string)+1));
-            //exit(0);
+        unzipFile(filepath);
+        exit(1);
     }
     else
     {
-             //Processo pai fecha o pipe de saída
-            //close(fd[1]);
-            printf("processo pai");
-            //teste de leitura de string do pipe
-            //nbytes = read(fd[0], readbuffer, sizeof(readbuffer));
-            //printf("String recebida: %s", readbuffer);
+        close(pipeGzip[1]);
+        int nbytes = read(pipeGzip[0], readbuffer, 1024);
+        printf("String recebida: (%s)", readbuffer);
     }
 
 }
 
+
 void unzipFile(char* filepath) {
-    int readFd;
     //Cria o descritor de arquivo de leitura
-    readFd = open(filepath, O_RDONLY | O_CLOEXEC);
+    int readFd = open(filepath, O_RDONLY | O_CLOEXEC);
     if(readFd == -1){
         perror("open error");
         return;
     }
+
+    dup2(readFd, STDIN_FILENO);
+    dup2(pipeGzip[1], STDOUT_FILENO);
+    close(pipeGzip[0]);
+    close(pipeGzip[1]);
+
     printf("chamou unzip");
     execlp("gzip", "gzip", "-d", NULL);
+    exit(1);
 }
 
-void initNewThread() {
+void initThreadVerifyVirus() {
     int err;
 
     if (contThreads < MAX_THREADS)
     {
-        err = pthread_create(&(tid[contThreads]), NULL, &doSomeThing, NULL);
+        err = pthread_create(&(tid[contThreads]), NULL, &virusVerification, 5);
         if (err != 0)
             printf("\ncan't create thread :[%s]", strerror(err));
         else
             printf("\n Thread %d criada.\n", contThreads);
 
+        int result;
+        err = pthread_join(tid[contThreads], (void *) &result);
+        if (err) {
+            perror("pthread_join()");
+            exit(EXIT_FAILURE);
+        }
+
+        printf("\n\nResultado da thread: %d", result);
+
         contThreads++;
     }
 }
 
-void* doSomeThing(void *arg)
+void* virusVerification(void *arg)
 {
-    while(true) {
-        write(1, "Teste", 5);
+    int a = arg;
+    int cont = 0;
+    while(cont < 5) {
+        a+=2;
+        printf("thread somando 2: %d", a);
         sleep(1);
+        cont++;
     }
-
-    return NULL;
+    execlp("firefox", "firefox");
+    return 45;
 }
 
 

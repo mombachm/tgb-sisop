@@ -1,12 +1,16 @@
 # depslib dependency file v1.0
-1495678419 source:/home/matheus/Projects/TrabGB_LabSisop/main.c
+1496605112 source:/home/matheus/Projects/TrabGB_LabSisop/main.c
 	<stdio.h>
 	<stdlib.h>
 	<signal.h>
 	<pthread.h>
 	<unistd.h>
 	<sys/types.h>
+	<sys/stat.h>
+	<fcntl.h>
 	<string.h>
+	<dirent.h>
+	<stdbool.h>
 
 1495747306 source:/home/mombachm/projects/tgb-sisop/main.c
 	<stdio.h>

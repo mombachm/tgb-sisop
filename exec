@@ -1,0 +1,38 @@
+#!/bin/bash
+# My first script
+
+RED='\033[0;31m'
+GREEN='\033[0;92m'
+CYAN='\033[0;96m'
+NC='\033[0m' # No Color
+echo "*** Compiling main.c ***"
+gcc -pthread -o main main.c
+res=$?
+if [[ $res -ne 0 ]]
+then
+	echo -e "${RED}************** GCC ERROR **************${NC}"
+	echo -e "${RED}************** GCC ERROR **************${NC}"
+	echo -e "${RED}************** GCC ERROR **************${NC}"
+else
+	echo -e "${GREEN}************** GCC OK **************${NC}"
+	echo -e "${GREEN}************** GCC OK **************${NC}"
+	echo -e "${GREEN}************** GCC OK **************${NC}"
+fi
+echo $'\n'$'\n'$'\n'$'\n'$'\n'$'\n'$'\n'$'\n'
+echo -e "${GREEN}*** Executing main.c ***${NC}"
+echo $'\n'
+echo -e ${CYAN}
+./main "virus" $(ls)
+echo -e ${NC}
+echo $'\n'$'\n'$'\n'$'\n'$'\n'$'\n'$'\n'$'\n'$'\n'$'\n'$'\n'$'\n'$'\n'$'\n'$'\n'$'\n'$'\n'$'\n'
+if [[ $res -ne 0 ]];
+then
+	echo -e "${RED}************** GCC ERROR **************${NC}"
+	echo -e "${RED}************** GCC ERROR **************${NC}"
+	echo -e "${RED}************** GCC ERROR **************${NC}"
+else
+	echo -e "${GREEN}************** GCC OK **************${NC}"
+	echo -e "${GREEN}************** GCC OK **************${NC}"
+	echo -e "${GREEN}************** GCC OK **************${NC}"
+fi
+
