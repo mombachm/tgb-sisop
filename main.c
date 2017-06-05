@@ -21,43 +21,112 @@
 #include <stdbool.h>
 
 
+#define MAX_THREADS 50
+#define MAX_INFECTED_FILES 50
+#define MAX_FILENAME_SIZE 50
 
-const char* DIRETORIO_SCAN = "./scan_files";
-const int MAX_THREADS = 50;
-pthread_t tid[50];
+
+typedef struct
+{
+    int nFound;
+    char *filename;
+} VirusFile;
+
+pthread_t tid[MAX_THREADS];
+pthread_mutex_t mutex;
 
 void* virusVerification(void *arg);
+void* testFile(int readFd);
 
 int contThreads = 0;
 int pipeGzip[2];
 
+char* virusAss;
+
+VirusFile* infectedFiles[MAX_INFECTED_FILES];
+int totalInfected = 0;
+int totalVerified = 0;
+
 int main(int argc, char **argv)
 {
+    init();
+    if(argc > 1) virusAss = argv[1];
     checkFilesForVirus(argc, argv);
+
+    writeDebugOutput();
+    writeResultsOutput();
+
+    for(int i=0; i<MAX_INFECTED_FILES; i++){
+        free(infectedFiles[i]);
+    }
+
     //initNewThread();
     return(EXIT_SUCCESS);
+}
+
+void writeResultsOutput() {
+    //put total infected and total verified files on standard error output
+    fprintf(stderr, "%d/%d", totalInfected, totalVerified);
+    //put infected files on standard output
+    for(int i=0; i<MAX_INFECTED_FILES; i++){
+        if(infectedFiles[i] != NULL) {
+            fprintf(stdout,"%s\n", infectedFiles[i]->filename);
+        }
+    }
+}
+
+void init() {
+    //memset(infectedFiles, NULL, MAX_INFECTED_FILES * sizeof *infectedFiles);
+    for(int i=0; i<MAX_INFECTED_FILES; i++){
+        infectedFiles[i] = NULL;
+    }
+    pthread_mutex_init(&mutex, NULL);
+}
+
+void writeDebugOutput() {
+    printf("\n****** Virus Results ******\n");
+    printf("\nSearched virus signature: %s", virusAss);
+    printf("\nTotal verified files: %d \\ Total infected files: %d\n", totalVerified, totalInfected);
+    printf("\n****** Infected Files ******\n");
+    for(int i=0; i<MAX_INFECTED_FILES; i++){
+        if(infectedFiles[i] != NULL) {
+            printf( "%s\n", infectedFiles[i]->filename);
+        }
+    }
+    printf("\n****************************\n");
 }
 
 void checkFilesForVirus(int len, char **filepaths) {
     int readFd;
     char* strZipped;
-    for( int i = 2; i < len; ++i ) {
-        if(checkFileCompressed(filepaths[ i ]) == true) {
+    for( int i=2; i<len; i++ ) {
+        if(checkFileCompressed(filepaths[i]) == true) {
             strZipped = "Compressed";
-            sendFileToUnzip(filepaths[ i ]);
+            sendFileToUnzip(filepaths[i]);
         } else {
             strZipped = "Uncompressed";
+            readFd = open(filepaths[i], O_RDONLY | O_CLOEXEC, S_IRUSR | S_IWUSR );
+            if(readFd == -1){
+                perror("open error");
+            }
+            initThreadVerifyVirus(readFd);
         }
-        printf( "File: %-30s - %s \n", filepaths[ i ], strZipped );
+        //custom printf for debug
+        //printf( "File: %-30s - %s \n", filepaths[ i ], strZipped );
     }
+
+
+    aguardaThreads();
+    pthread_mutex_destroy(&mutex);
+    return infectedFiles;
 }
 
 int checkFileCompressed(char* filepath) {
     int readFd;
     unsigned char readBuffer[2];
 
-    //Cria o descritor de arquivo de leitura
-    readFd = open(filepath, O_RDONLY, 0644);
+    //create file descriptor to read the file and check if is compressed
+    readFd = open(filepath, O_RDONLY | O_CLOEXEC, S_IRUSR | S_IWUSR );
     if(readFd == -1){
         perror("open error");
         return false;
@@ -104,8 +173,11 @@ void sendFileToUnzip(char* filepath) {
     else
     {
         close(pipeGzip[1]);
-        int nbytes = read(pipeGzip[0], readbuffer, 1024);
-        printf("String recebida: (%s)", readbuffer);
+        initThreadVerifyVirus(pipeGzip[0]);
+        //int nbytes = read(pipeGzip[0], readbuffer, 1024);
+        //printf("String recebida: (%s)", readbuffer);
+        //int readFd = open(readbuffer, O_RDONLY | O_CLOEXEC);
+
     }
 
 }
@@ -129,44 +201,60 @@ void unzipFile(char* filepath) {
     exit(1);
 }
 
-void initThreadVerifyVirus() {
+void initThreadVerifyVirus(char* readFd) {
     int err;
-
+    pthread_attr_t attr;
     if (contThreads < MAX_THREADS)
     {
-        err = pthread_create(&(tid[contThreads]), NULL, &virusVerification, 5);
-        if (err != 0)
-            printf("\ncan't create thread :[%s]", strerror(err));
-        else
-            printf("\n Thread %d criada.\n", contThreads);
+        pthread_attr_init(&attr);
+        pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+        err = pthread_create(&(tid[contThreads]), &attr, &virusVerification, (void *)readFd);
+        if (err != 0) {
+            perror("pthread_create()");
+        }
+        contThreads++;
+    }
+    pthread_attr_destroy(&attr);
+}
 
-        int result;
-        err = pthread_join(tid[contThreads], (void *) &result);
+void aguardaThreads() {
+    int err;
+    void *status;
+    for(int i=0; i<contThreads; i++){
+        err = pthread_join(tid[i], (void *) &status);
         if (err) {
             perror("pthread_join()");
             exit(EXIT_FAILURE);
         }
-
-        printf("\n\nResultado da thread: %d", result);
-
-        contThreads++;
     }
 }
 
-void* virusVerification(void *arg)
+void* virusVerification(void* readFd)
 {
-    int a = arg;
-    int cont = 0;
-    while(cont < 5) {
-        a+=2;
-        printf("thread somando 2: %d", a);
-        sleep(1);
-        cont++;
+    //Cria o descritor de arquivo de leitura
+    char readbuffer[20];
+    if(readFd == -1){
+        perror("open error");
+        return;
     }
-    execlp("firefox", "firefox");
-    return 45;
-}
 
+    //sleep(2);
+    ssize_t res = read (readFd, readbuffer, 20);
+
+    //IMPLEMENTAR BUSCA DA ASSINATURA DO VIRUS
+    pthread_mutex_lock (&mutex);
+    totalVerified++;
+    int i = 0;
+    while(&infectedFiles[i] != NULL && i <= contThreads) {
+        infectedFiles[i] = malloc(sizeof(VirusFile));
+        infectedFiles[i]->filename = "teste";
+        infectedFiles[i]->nFound = i;
+        i++;
+    }
+    pthread_mutex_unlock (&mutex);
+    close (readFd);
+    pthread_exit((void*) 0);
+}
 
 
 

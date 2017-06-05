@@ -22,7 +22,7 @@ echo $'\n'$'\n'$'\n'$'\n'$'\n'$'\n'$'\n'$'\n'
 echo -e "${GREEN}*** Executing main.c ***${NC}"
 echo $'\n'
 echo -e ${CYAN}
-./main "virus" $(ls)
+./main "virus" $(ls) > >(tee stdout.txt) 2> >(tee stderr.txt >&2)
 echo -e ${NC}
 echo $'\n'$'\n'$'\n'$'\n'$'\n'$'\n'$'\n'$'\n'$'\n'$'\n'$'\n'$'\n'$'\n'$'\n'$'\n'$'\n'$'\n'$'\n'
 if [[ $res -ne 0 ]];
