@@ -138,20 +138,6 @@ int checkFileCompressed(char* filepath) {
     return false;
 }
 
-/*void handler(int sig)
-{
-    char readbuffer[80];
-    pid_t pid;
-
-    pid = wait(NULL);
-
-
-    printf("Pid %d exited.\n", pid);
-    close(pipeGzip[1]);
-    int nbytes = read(pipeGzip[0], readbuffer, 1024);
-    printf("String recebida: (%s)", readbuffer);
-}*/
-
 void sendFileToUnzip(char* filepath) {
 
     pid_t childpid;
@@ -174,10 +160,6 @@ void sendFileToUnzip(char* filepath) {
     {
         close(pipeGzip[1]);
         initThreadVerifyVirus(pipeGzip[0]);
-        //int nbytes = read(pipeGzip[0], readbuffer, 1024);
-        //printf("String recebida: (%s)", readbuffer);
-        //int readFd = open(readbuffer, O_RDONLY | O_CLOEXEC);
-
     }
 
 }
