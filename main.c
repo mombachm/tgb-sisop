@@ -125,7 +125,7 @@ int checkFileCompressed(char* filepath) {
     int readFd;
     unsigned char readBuffer[2];
 
-    //create file descriptor to read the file and check if is compressed
+    //Create file descriptor to read the file and check if is compressed
     readFd = open(filepath, O_RDONLY | O_CLOEXEC, S_IRUSR | S_IWUSR );
     if(readFd == -1){
         perror("open error");
@@ -166,7 +166,7 @@ void sendFileToUnzip(char* filepath) {
 
 
 void unzipFile(char* filepath) {
-    //Cria o descritor de arquivo de leitura
+    //Create the read file descriptor 
     int readFd = open(filepath, O_RDONLY | O_CLOEXEC);
     if(readFd == -1){
         perror("open error");
@@ -213,7 +213,8 @@ void aguardaThreads() {
 
 void* virusVerification(void* readFd)
 {
-    //Cria o descritor de arquivo de leitura
+    //Receive the read file descriptor 
+    //Create a buffer to test
     char readbuffer[20];
     if(readFd == -1){
         perror("open error");
@@ -223,7 +224,7 @@ void* virusVerification(void* readFd)
     //sleep(2);
     ssize_t res = read (readFd, readbuffer, 20);
 
-    //IMPLEMENTAR BUSCA DA ASSINATURA DO VIRUS
+    //IMPLEMENT SEARCH FOR VIRUS SIGNATURE
     pthread_mutex_lock (&mutex);
     totalVerified++;
     int i = 0;
