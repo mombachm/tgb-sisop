@@ -28,7 +28,6 @@
 
 typedef struct
 {
-    int nFound;
     char *filename;
 } VirusFile;
 
@@ -53,7 +52,7 @@ int main(int argc, char **argv)
     if(argc > 1) virusAss = argv[1];
     checkFilesForVirus(argc, argv);
 
-    writeDebugOutput();
+    //writeDebugOutput();
     writeResultsOutput();
 
     for(int i=0; i<MAX_INFECTED_FILES; i++){
@@ -65,18 +64,18 @@ int main(int argc, char **argv)
 }
 
 void writeResultsOutput() {
-    //put total infected and total verified files on standard error output
-    fprintf(stderr, "%d/%d", totalInfected, totalVerified);
     //put infected files on standard output
     for(int i=0; i<MAX_INFECTED_FILES; i++){
         if(infectedFiles[i] != NULL) {
+            totalInfected++;
             fprintf(stdout,"%s\n", infectedFiles[i]->filename);
         }
     }
+
+    fprintf(stderr, "%d/%d", totalInfected, totalVerified);
 }
 
 void init() {
-    //memset(infectedFiles, NULL, MAX_INFECTED_FILES * sizeof *infectedFiles);
     for(int i=0; i<MAX_INFECTED_FILES; i++){
         infectedFiles[i] = NULL;
     }
@@ -84,16 +83,17 @@ void init() {
 }
 
 void writeDebugOutput() {
-    printf("\n****** Virus Results ******\n");
-    printf("\nSearched virus signature: %s", virusAss);
-    printf("\nTotal verified files: %d \\ Total infected files: %d\n", totalVerified, totalInfected);
     printf("\n****** Infected Files ******\n");
     for(int i=0; i<MAX_INFECTED_FILES; i++){
         if(infectedFiles[i] != NULL) {
-            printf( "%s\n", infectedFiles[i]->filename);
+            totalInfected++;
+            printf( "%s      -  %d\n", infectedFiles[i]->filename);
         }
     }
     printf("\n****************************\n");
+    printf("\n****** Virus Results ******\n");
+    printf("\nSearched virus signature: %s", virusAss);
+    printf("\nTotal verified files: %d \\ Total infected files: %d\n", totalVerified, totalInfected);
 }
 
 void checkFilesForVirus(int len, char **filepaths) {
@@ -109,7 +109,7 @@ void checkFilesForVirus(int len, char **filepaths) {
             if(readFd == -1){
                 perror("open error");
             }
-            initThreadVerifyVirus(readFd);
+            initThreadVerifyVirus(readFd, filepaths[i]);
         }
         //custom printf for debug
         //printf( "File: %-30s - %s \n", filepaths[ i ], strZipped );
@@ -159,14 +159,14 @@ void sendFileToUnzip(char* filepath) {
     else
     {
         close(pipeGzip[1]);
-        initThreadVerifyVirus(pipeGzip[0]);
+        initThreadVerifyVirus(pipeGzip[0], filepath);
     }
 
 }
 
 
 void unzipFile(char* filepath) {
-    //Create the read file descriptor 
+    //Create the read file descriptor
     int readFd = open(filepath, O_RDONLY | O_CLOEXEC);
     if(readFd == -1){
         perror("open error");
@@ -183,7 +183,7 @@ void unzipFile(char* filepath) {
     exit(1);
 }
 
-void initThreadVerifyVirus(char* readFd) {
+void initThreadVerifyVirus(char *readFd, char *filename) {
     int err;
     pthread_attr_t attr;
     if (contThreads < MAX_THREADS)
@@ -194,6 +194,10 @@ void initThreadVerifyVirus(char* readFd) {
         if (err != 0) {
             perror("pthread_create()");
         }
+
+        infectedFiles[contThreads] = malloc(sizeof(VirusFile));
+        infectedFiles[contThreads]->filename = filename;
+
         contThreads++;
     }
     pthread_attr_destroy(&attr);
@@ -213,27 +217,44 @@ void aguardaThreads() {
 
 void* virusVerification(void* readFd)
 {
-    //Receive the read file descriptor 
+
+
+    //Receive the read file descriptor
     //Create a buffer to test
-    char readbuffer[20];
+    char readbuffer[1000];
     if(readFd == -1){
         perror("open error");
         return;
     }
 
     //sleep(2);
-    ssize_t res = read (readFd, readbuffer, 20);
+    ssize_t res = read (readFd, readbuffer, 1000);
 
+    //printf("\n\n%s\n\n", readbuffer);
+
+    void *find;
+    bool found = false;
+    find = memmem(readbuffer, 1000, virusAss, strlen(virusAss));
+    if (find) {
+        found = true;
+    }
     //IMPLEMENT SEARCH FOR VIRUS SIGNATURE
     pthread_mutex_lock (&mutex);
+
     totalVerified++;
-    int i = 0;
-    while(&infectedFiles[i] != NULL && i <= contThreads) {
-        infectedFiles[i] = malloc(sizeof(VirusFile));
-        infectedFiles[i]->filename = "teste";
-        infectedFiles[i]->nFound = i;
-        i++;
+    pthread_t self;
+    self = pthread_self();
+    int indexThread = -1;
+    for(int i = 0; i < contThreads; i++) {
+        if(pthread_equal(tid[i], self))
+            indexThread = i;
     }
+    if(indexThread >= 0) {
+        if(!found) {
+            infectedFiles[indexThread] = NULL;
+        }
+    }
+
     pthread_mutex_unlock (&mutex);
     close (readFd);
     pthread_exit((void*) 0);
