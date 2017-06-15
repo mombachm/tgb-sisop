@@ -23,28 +23,31 @@
 
 #define MAX_THREADS 50
 #define MAX_INFECTED_FILES 50
-#define MAX_FILENAME_SIZE 50
-
-
-typedef struct
-{
-    char *filename;
-} VirusFile;
+#define MAX_FILESIZE 1024
+#define MAX_FILENAME_SIZE 100
 
 pthread_t tid[MAX_THREADS];
 pthread_mutex_t mutex;
-
-void* virusVerification(void *arg);
-void* testFile(int readFd);
 
 int contThreads = 0;
 int pipeGzip[2];
 
 char* virusAss;
 
-VirusFile* infectedFiles[MAX_INFECTED_FILES];
+char* infectedFiles[MAX_INFECTED_FILES];
 int totalInfected = 0;
 int totalVerified = 0;
+
+void* virusVerification(void *arg);
+void writeResultsOutput();
+void writeDebugOutput();
+void checkFilesForVirus(int len, char **filepaths);
+int checkFileCompressed(char* filepath);
+void sendFileToUnzip(char* filepath);
+void unzipFile(char* filepath);
+void initThreadVerifyVirus(char *readFd, char *filename);
+void aguardaThreads();
+void* virusVerification(void* readFd);
 
 int main(int argc, char **argv)
 {
@@ -52,14 +55,12 @@ int main(int argc, char **argv)
     if(argc > 1) virusAss = argv[1];
     checkFilesForVirus(argc, argv);
 
-    //writeDebugOutput();
-    writeResultsOutput();
+    //writeDebugOutput(); //Debug output
+    writeResultsOutput(); //SDT_OUT and STD_ERR output
 
     for(int i=0; i<MAX_INFECTED_FILES; i++){
         free(infectedFiles[i]);
     }
-
-    //initNewThread();
     return(EXIT_SUCCESS);
 }
 
@@ -67,8 +68,7 @@ void writeResultsOutput() {
     //put infected files on standard output
     for(int i=0; i<MAX_INFECTED_FILES; i++){
         if(infectedFiles[i] != NULL) {
-            totalInfected++;
-            fprintf(stdout,"%s\n", infectedFiles[i]->filename);
+            fprintf(stdout,"%s\n", infectedFiles[i]);
         }
     }
 
@@ -83,17 +83,19 @@ void init() {
 }
 
 void writeDebugOutput() {
+    printf("\n****** Virus Results ******\n");
+    printf("\nSearched virus signature: %s", virusAss);
     printf("\n****** Infected Files ******\n");
+    printf("_________________________\n");
     for(int i=0; i<MAX_INFECTED_FILES; i++){
         if(infectedFiles[i] != NULL) {
             totalInfected++;
-            printf( "%s      -  %d\n", infectedFiles[i]->filename);
+            printf( "%s\n", infectedFiles[i]);
         }
     }
-    printf("\n****************************\n");
-    printf("\n****** Virus Results ******\n");
-    printf("\nSearched virus signature: %s", virusAss);
+    printf("_________________________\n");
     printf("\nTotal verified files: %d \\ Total infected files: %d\n", totalVerified, totalInfected);
+    printf("\n****************************\n");
 }
 
 void checkFilesForVirus(int len, char **filepaths) {
@@ -164,7 +166,6 @@ void sendFileToUnzip(char* filepath) {
 
 }
 
-
 void unzipFile(char* filepath) {
     //Create the read file descriptor
     int readFd = open(filepath, O_RDONLY | O_CLOEXEC);
@@ -195,9 +196,7 @@ void initThreadVerifyVirus(char *readFd, char *filename) {
             perror("pthread_create()");
         }
 
-        infectedFiles[contThreads] = malloc(sizeof(VirusFile));
-        infectedFiles[contThreads]->filename = filename;
-
+        infectedFiles[contThreads] = strdup(filename); //strdup returns a pointer to a new allocated string duplicating the string passed as parameter
         contThreads++;
     }
     pthread_attr_destroy(&attr);
@@ -215,30 +214,28 @@ void aguardaThreads() {
     }
 }
 
-void* virusVerification(void* readFd)
-{
-
-
+void* virusVerification(void* readFd){
     //Receive the read file descriptor
     //Create a buffer to test
-    char readbuffer[1000];
+    char readbuffer[MAX_FILESIZE];
     if(readFd == -1){
         perror("open error");
         return;
     }
 
-    //sleep(2);
-    ssize_t res = read (readFd, readbuffer, 1000);
+    ssize_t res = read (readFd, readbuffer, MAX_FILESIZE);
 
     //printf("\n\n%s\n\n", readbuffer);
 
     void *find;
     bool found = false;
-    find = memmem(readbuffer, 1000, virusAss, strlen(virusAss));
+    find = memmem(readbuffer, MAX_FILESIZE, virusAss, strlen(virusAss));
     if (find) {
         found = true;
+        totalInfected++;
     }
-    //IMPLEMENT SEARCH FOR VIRUS SIGNATURE
+
+    //Use mutex to access the shared memory
     pthread_mutex_lock (&mutex);
 
     totalVerified++;
