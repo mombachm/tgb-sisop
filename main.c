@@ -24,8 +24,8 @@
 #define MAX_FILESIZE 1000000
 #define MAX_FILENAME_SIZE 100
 
-pthread_t tid[MAX_THREADS];
-pthread_mutex_t mutex;
+pthread_t tid[MAX_THREADS]; //array of thread IDs
+pthread_mutex_t mutex; //mutex used in the threads function
 
 int contThreads = 0;//counter for threads created
 int pipeGzip[2];    //pipe to get the output of gzip command in the parent process
@@ -45,6 +45,11 @@ void initThreadVerifyVirus(char *readFd, char *filename);
 void waitThreads();
 void* virusVerification(void* readFd);
 
+/**
+FUNCTION:       void main()
+---------------------------------
+DESCRIPTION:    It executes the main routine
+*/
 int main(int argc, char **argv){
     init(); //call init function to initialize general configurations
     if(argc > 1) virusAss = argv[1]; //get virus signature
@@ -269,7 +274,7 @@ INPUT:  char *readFd = pointer for the file descriptor
 */
 void* virusVerification(void* readFd){
     //Receive the read file descriptor
-    //Create a buffer to test
+    //Create a buffer to read the file for verify the virus
     char readbuffer[MAX_FILESIZE];
     if(readFd == -1){
         perror("open error");
@@ -308,9 +313,6 @@ void* virusVerification(void* readFd){
     pthread_exit(NULL);
 }
 
-
-
-//scanf("%30[^\n]%*c", buffer)
 
 
 
