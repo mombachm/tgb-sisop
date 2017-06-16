@@ -1,3 +1,6 @@
-comvirus
+comvirus2.gz
+comvirus.gz
 exec
+main
 main.c
+teste2
